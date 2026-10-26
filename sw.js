@@ -43,6 +43,27 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
+  // Spot datasets (~1 MB): answer from cache at once, refresh in the background.
+  if (url.origin === self.location.origin && /\/data\/[^/]+\.json$/.test(url.pathname)) {
+    e.respondWith(
+      caches.open(SHELL).then(async (cache) => {
+        const hit = await cache.match(req);
+        const refresh = fetch(req)
+          .then((res) => {
+            if (res.ok) cache.put(req, res.clone());
+            return res;
+          })
+          .catch(() => hit ?? Response.error());
+        if (hit) {
+          e.waitUntil(refresh);
+          return hit;
+        }
+        return refresh;
+      }),
+    );
+    return;
+  }
+
   if (url.origin === self.location.origin) {
     e.respondWith(
       fetch(req)
