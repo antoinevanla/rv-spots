@@ -1,0 +1,6 @@
+{
+  "name": "rv-spots-data",
+  "private": true,
+  "type": "module",
+  "description": "Builds the OpenStreetMap spot file served next to the RV Spots app"
+}

@@ -5,4 +5,9 @@ campsites, motorhome parking, onsen and dump stations, loaded live from OpenStre
 
 **Open the app:** https://antoinevanla.github.io/rv-spots/
 
-This repo only hosts the built app (branch `gh-pages`). Spot data © OpenStreetMap contributors (ODbL).
+This repo hosts the built app (branch `gh-pages`) and a weekly job (`.github/workflows/update-data.yml`)
+that downloads every spot in Japan from OpenStreetMap into `data/osm.json` next to the app, so phones
+load one file instead of querying the map servers live. Run it by hand from the Actions tab
+("Update spot data" → Run workflow).
+
+Spot data © OpenStreetMap contributors (ODbL).

@@ -1,0 +1,44 @@
+# Downloads all OpenStreetMap overnight spots in Japan once a week and publishes them as
+# data/osm.json on the gh-pages branch, next to the app. Phones then load one static file
+# instead of querying Overpass themselves.
+name: Update spot data
+
+on:
+  schedule:
+    - cron: "17 3 * * 1" # Mondays 03:17 UTC
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["scripts/**", ".github/workflows/update-data.yml"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Download spots from OpenStreetMap
+        run: node scripts/fetch-osm.mjs --out "$RUNNER_TEMP/osm.json" --min 2000
+      - name: Publish data/osm.json to gh-pages
+        run: |
+          git fetch --depth 1 origin gh-pages
+          git worktree add "$RUNNER_TEMP/site" FETCH_HEAD
+          cd "$RUNNER_TEMP/site"
+          mkdir -p data
+          cp "$RUNNER_TEMP/osm.json" data/osm.json
+          git add data/osm.json
+          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -m "Update spot data $(date -u +%Y-%m-%d)"
+          git push origin HEAD:gh-pages
