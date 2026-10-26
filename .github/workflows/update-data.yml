@@ -1,6 +1,6 @@
-# Downloads all OpenStreetMap overnight spots in Japan once a week and publishes them as
-# data/osm.json on the gh-pages branch, next to the app. Phones then load one static file
-# instead of querying Overpass themselves.
+# Builds data/osm.json (every overnight spot in Japan from OpenStreetMap) once a week and
+# publishes it on the gh-pages branch, next to the app. Uses Geofabrik's Japan extract rather
+# than the public Overpass servers, which are frequently at capacity.
 name: Update spot data
 
 on:
@@ -27,8 +27,26 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Download spots from OpenStreetMap
-        run: node scripts/fetch-osm.mjs --out "$RUNNER_TEMP/osm.json" --min 2000
+      - name: Install osmium
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool
+      - name: Download Japan extract from Geofabrik
+        run: |
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/japan.osm.pbf" https://download.geofabrik.de/asia/japan-latest.osm.pbf
+          ls -lh "$RUNNER_TEMP/japan.osm.pbf"
+      - name: Keep only overnight spots
+        run: |
+          cd "$RUNNER_TEMP"
+          osmium tags-filter japan.osm.pbf \
+            nwr/tourism=caravan_site,camp_site \
+            nwr/highway=services,rest_area \
+            nwr/amenity=sanitary_dump_station,public_bath \
+            nwr/motorhome=yes,designated \
+            'nwr/name=道の駅*' \
+            -o spots.osm.pbf --overwrite
+          osmium export spots.osm.pbf -f geojsonseq -x print_record_separator=false -a type,id -o spots.geojsonseq --overwrite
+          wc -l spots.geojsonseq
+      - name: Build data/osm.json
+        run: node scripts/build-from-pbf.mjs "$RUNNER_TEMP/spots.geojsonseq" --out "$RUNNER_TEMP/osm.json" --min 2000
       - name: Publish data/osm.json to gh-pages
         run: |
           git fetch --depth 1 origin gh-pages
@@ -36,6 +54,7 @@ jobs:
           cd "$RUNNER_TEMP/site"
           mkdir -p data
           cp "$RUNNER_TEMP/osm.json" data/osm.json
+          ls -lh data/osm.json
           git add data/osm.json
           if git diff --cached --quiet; then echo "No changes"; exit 0; fi
           git config user.name "github-actions[bot]"

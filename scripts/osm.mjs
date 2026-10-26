@@ -89,8 +89,10 @@ export function normalizeOsm(elements) {
     const lng = el.lon ?? el.center?.lon;
     if (lat == null || lng == null || !inJapan(lat, lng)) continue;
     const type = classify(t);
+    // Things matched only by a side tag (e.g. motorhome=yes on a shop) are not spots.
+    if (type === "other") continue;
     // Unnamed bathhouses and rest areas are noise (lay-bys, tiny pull-offs).
-    if (!t.name && (type === "onsen" || type === "other" || t.highway)) continue;
+    if (!t.name && (type === "onsen" || t.highway)) continue;
 
     const spot = {
       id: `osm:${el.type}/${el.id}`,
